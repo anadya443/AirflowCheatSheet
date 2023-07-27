@@ -12,9 +12,9 @@ task_id="child_dag_task"
 external_dag_id="parent_dag"
 external_task_id="parent_dag_task"
 
-def get_most_recent_run_today(dt):
+def get_most_recent_run_today(dag_id):
     today_date = datetime.now(timezone.utc)
-    dag_runs = list(DagRun.find(dag_id=external_dag_id))
+    dag_runs = list(DagRun.find(dag_id=dag_id))
     dag_runs.sort(key=lambda x: x.execution_date, reverse=True)
     if dag_runs:
         recent_run = dag_runs[0].execution_date;
@@ -25,7 +25,10 @@ def get_most_recent_run_today(dt):
     else:
         return today_date;
 
-last_run_today = get_most_recent_run_today(datetime.now(timezone.utc))
+def get_most_recent_external_dag_today(dt):
+    return get_most_recent_run_today(external_dag_id);
+
+last_run_today = get_most_recent_external_dag_today(None)
 
 
 
@@ -43,13 +46,13 @@ with DAG(
         external_dag_id=external_dag_id,
         external_task_id=external_task_id,
         allowed_states=["success"],
-        execution_date_fn=get_most_recent_run_today
+        execution_date_fn=get_most_recent_external_dag_today
     )
 
     child_task2 = BashOperator(
         task_id="print_date",
         depends_on_past=False,
-        bash_command=f"echo hello { get_most_recent_run_today(datetime.now(timezone.utc))}",
+        bash_command=f"echo hello { last_run_today}",
         retries=3,
     )
     child_task2 >> child_task1
